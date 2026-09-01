@@ -18,3 +18,4 @@ TBD
 
 Role A는 이 레포에 runtime/analysis code를 추가하지 않습니다. A와의 연동 경계와
 evidence 계약은 [`docs/A_ROLE_IMPLEMENTATION.md`](docs/A_ROLE_IMPLEMENTATION.md)를 참조하세요.
+선임 검토 결과는 [`docs/A_SENIOR_REVIEW_LOG.md`](docs/A_SENIOR_REVIEW_LOG.md)에 기록했습니다.
