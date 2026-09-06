@@ -124,22 +124,55 @@ class OpenAICompatibleAgentProvider:
             raise ProviderProtocolError("Agent provider returned invalid JSON.") from None
 
         latency_ms = int((time.perf_counter() - started) * 1000)
+        if not isinstance(response_payload, dict):
+            raise ProviderProtocolError(
+                "Provider response must be a JSON object."
+            )
+
         choices = response_payload.get("choices")
         if not isinstance(choices, list) or not choices:
             raise ProviderProtocolError("Provider response must contain a choice.")
-        message = choices[0]["message"]
-        tool_calls = message.get("tool_calls") or []
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            raise ProviderProtocolError("Provider choice must be an object.")
+
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            raise ProviderProtocolError("Provider choice must contain a message object.")
+
+        tool_calls = message.get("tool_calls")
+        if tool_calls is None:
+            tool_calls = []
+        elif not isinstance(tool_calls, list):
+            raise ProviderProtocolError("Provider tool_calls must be a list.")
 
         if tool_calls:
             if len(tool_calls) != 1:
                 raise ProviderProtocolError("Expected exactly one tool call.")
             tool_call = tool_calls[0]
-            function = tool_call["function"]
+            function = (
+                tool_call.get("function")
+                if isinstance(tool_call, dict)
+                else None
+            )
+            if not isinstance(function, dict):
+                raise ProviderProtocolError(
+                    "Provider tool call must contain a function object."
+                )
+
+            function_name = function.get("name")
+            if not isinstance(function_name, str) or not function_name:
+                raise ProviderProtocolError(
+                    "Provider function must contain a valid name."
+                )
+
             allowed_tool_names = {tool.name for tool in request.agentContext.tools}
-            if function["name"] not in allowed_tool_names:
+            if function_name not in allowed_tool_names:
                 raise ProviderProtocolError("Unknown tool returned by provider.")
+
+            function_arguments = function.get("arguments")
             try:
-                arguments = json.loads(function["arguments"])
+                arguments = json.loads(function_arguments)
             except (json.JSONDecodeError, TypeError):
                 raise ProviderProtocolError("Tool arguments must be valid JSON.") from None
             if not isinstance(arguments, dict):
@@ -152,7 +185,7 @@ class OpenAICompatibleAgentProvider:
                 finishReason="tool_call",
                 action=ToolProposalAction(
                     type="TOOL_PROPOSAL",
-                    toolName=function["name"],
+                    toolName=function_name,
                     arguments=arguments,
                 ),
                 latencyMs=latency_ms,

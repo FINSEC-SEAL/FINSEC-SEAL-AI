@@ -464,3 +464,138 @@ def test_openai_provider_rejects_malformed_json_response():
 
     with pytest.raises(ProviderProtocolError):
         provider.execute(agent_step_request())
+
+
+def test_openai_provider_rejects_choice_without_message_as_protocol_error():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"model": "configured-model-id", "choices": [{}]})
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())
+
+
+def test_openai_provider_rejects_non_list_tool_calls_as_protocol_error():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "configured-model-id",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": {"unexpected": "object"},
+                        }
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())
+
+
+def test_openai_provider_rejects_tool_call_without_function_as_protocol_error():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "configured-model-id",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [{"id": "call-1", "type": "function"}],
+                        }
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())
+
+
+def test_openai_provider_rejects_function_without_arguments_as_protocol_error():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "configured-model-id",
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call-1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "CUSTOMER_DATA_READ"
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())
+
+
+def test_openai_provider_rejects_non_object_response_as_protocol_error():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[])
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())
