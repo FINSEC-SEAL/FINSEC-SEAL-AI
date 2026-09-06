@@ -52,9 +52,48 @@ Step after Spring executes a Tool:
 - Spring calls the same endpoint again with `previousToolResult`
 - returns the next `TOOL_PROPOSAL` or `FINAL_RESPONSE`
 
-The current contract-first implementation is deterministic. A real LLM provider
-adapter is intentionally deferred until Spring ↔ Python contract and failure
-semantics are proven.
+The default provider remains deterministic so local tests and contract validation
+do not require external network access. Production can opt into the
+OpenAI-compatible provider through environment configuration.
+
+## Agent provider configuration
+
+Supported provider modes:
+
+- `AGENT_PROVIDER=deterministic`
+  - default when `AGENT_PROVIDER` is unset,
+  - uses the local deterministic contract provider,
+  - does not require an API key.
+- `AGENT_PROVIDER=openai-compatible`
+  - calls an OpenAI-compatible Chat Completions endpoint,
+  - requires `OPENAI_API_KEY`.
+
+OpenAI-compatible settings:
+
+- `OPENAI_API_KEY`
+  - required when `AGENT_PROVIDER=openai-compatible`.
+- `OPENAI_BASE_URL`
+  - optional,
+  - defaults to `https://api.openai.com/v1`.
+- `OPENAI_TIMEOUT_SECONDS`
+  - optional,
+  - defaults to `30`.
+
+The provider sends one stateless request to `/chat/completions`. Python does not
+execute returned Tools. A single valid function call is converted into
+`TOOL_PROPOSAL`; a non-empty assistant response is converted into
+`FINAL_RESPONSE`.
+
+Provider failures are normalized at the API boundary:
+
+- provider timeout → HTTP `504` with `Agent provider timed out.`
+- connection or upstream HTTP failure → HTTP `502` with
+  `Agent provider unavailable.`
+- malformed provider response → HTTP `502` with
+  `Agent provider returned an invalid response.`
+
+Provider exception details and upstream response bodies are not returned to API
+clients.
 
 ### `GET /health`
 
