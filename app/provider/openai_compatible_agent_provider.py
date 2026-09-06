@@ -129,6 +129,10 @@ class OpenAICompatibleAgentProvider:
                 "Provider response must be a JSON object."
             )
 
+        response_model = response_payload.get("model")
+        if not isinstance(response_model, str) or not response_model.strip():
+            response_model = request.agentContext.model.name
+
         choices = response_payload.get("choices")
         if not isinstance(choices, list) or not choices:
             raise ProviderProtocolError("Provider response must contain a choice.")
@@ -179,9 +183,7 @@ class OpenAICompatibleAgentProvider:
                 raise ProviderProtocolError("Tool arguments must be a JSON object.")
             return AgentStepResponse(
                 provider=self.provider,
-                model=response_payload.get(
-                    "model", request.agentContext.model.name
-                ),
+                model=response_model,
                 finishReason="tool_call",
                 action=ToolProposalAction(
                     type="TOOL_PROPOSAL",
@@ -197,9 +199,7 @@ class OpenAICompatibleAgentProvider:
 
         return AgentStepResponse(
             provider=self.provider,
-            model=response_payload.get(
-                "model", request.agentContext.model.name
-            ),
+            model=response_model,
             finishReason="stop",
             action=FinalResponseAction(
                 type="FINAL_RESPONSE",

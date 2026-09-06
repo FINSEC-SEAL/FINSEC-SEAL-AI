@@ -599,3 +599,33 @@ def test_openai_provider_rejects_non_object_response_as_protocol_error():
 
     with pytest.raises(ProviderProtocolError):
         provider.execute(agent_step_request())
+
+
+def test_openai_provider_falls_back_when_response_model_is_invalid():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": None,
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "review complete",
+                        }
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = provider.execute(agent_step_request())
+
+    assert result.model == "configured-model-id"
