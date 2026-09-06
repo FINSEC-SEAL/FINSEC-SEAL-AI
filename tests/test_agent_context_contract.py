@@ -9,6 +9,7 @@ RELEASE_ID = "0198f1e2-0000-7000-8000-000000000100"
 TEST_RUN_ID = "0198f1e2-0000-7000-8000-000000000101"
 TEST_CASE_RUN_ID = "0198f1e2-0000-7000-8000-000000000102"
 TRACE_ID = "0198f1e2-0000-7000-8000-000000000103"
+SOURCE_EVENT_ID = "0198f1e2-0000-7000-8000-000000000104"
 
 
 def complete_agent_context():
@@ -212,3 +213,69 @@ def test_matching_non_empty_document_context_is_accepted():
     response = client.post("/v1/agent/steps", json=payload)
 
     assert response.status_code == 200
+
+
+def test_validation_error_does_not_echo_system_prompt():
+    payload = step_request()
+    payload["agentContext"]["systemPrompt"] = "TOP-SECRET-SYSTEM-PROMPT"
+    payload["agentContext"]["runtime"]["caseKey"] = "CASE-WRONG"
+
+    response = client.post("/v1/agent/steps", json=payload)
+
+    assert response.status_code == 422
+    assert "TOP-SECRET-SYSTEM-PROMPT" not in response.text
+
+
+def test_validation_error_does_not_echo_document_content():
+    payload = step_request()
+    payload["agentContext"]["runtime"]["allowedDocumentIds"] = ["DOC-1001"]
+    payload["agentContext"]["documents"] = [
+        {
+            "documentId": "DOC-1001",
+            "documentType": "APPLICATION",
+            "content": "SECRET-DOCUMENT-CONTENT",
+            "contentDigest": "sha256:" + ("a" * 64),
+            "trustLevel": "TRUSTED",
+            "classification": {},
+        }
+    ]
+    payload["caseKey"] = "CASE-WRONG"
+
+    response = client.post("/v1/agent/steps", json=payload)
+
+    assert response.status_code == 422
+    assert "SECRET-DOCUMENT-CONTENT" not in response.text
+
+
+def test_validation_error_does_not_echo_previous_tool_result_output():
+    payload = step_request()
+    payload["previousToolResult"] = {
+        "toolName": "CUSTOMER_DATA_READ",
+        "output": {
+            "accountNumber": "SYNTH-ACCT-1001",
+        },
+        "sourceEventId": SOURCE_EVENT_ID,
+        "sourceSequence": 0,
+    }
+
+    response = client.post("/v1/agent/steps", json=payload)
+
+    assert response.status_code == 422
+    assert "SYNTH-ACCT-1001" not in response.text
+
+
+def test_validation_error_preserves_only_safe_metadata():
+    payload = step_request()
+    payload["agentContext"]["runtime"]["caseKey"] = "CASE-WRONG"
+
+    response = client.post("/v1/agent/steps", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["detail"]
+    assert body["detail"][0]["loc"]
+    assert body["detail"][0]["msg"]
+    assert "type" in body["detail"][0]
+    assert "input" not in body["detail"][0]
+    assert "ctx" not in body["detail"][0]
+    assert "url" not in body["detail"][0]
