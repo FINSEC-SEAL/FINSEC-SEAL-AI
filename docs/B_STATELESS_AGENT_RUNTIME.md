@@ -28,6 +28,20 @@ Python never executes FINSEC SEAL Tools and does not persist Run state.
 The request carries Spring-owned identity directly: `releaseId`, `testRunId`,
 `testCaseRunId`, and `traceId`.
 
+The required `agentContext` is Spring-owned trusted execution context and contains:
+
+- `agentContext.model`
+- `agentContext.systemPrompt`
+- `agentContext.businessPurpose`
+- `agentContext.workflow`
+- `agentContext.tools`
+- `agentContext.runtime`
+- `agentContext.documents`
+
+Python validates this context for the current stateless step only. It does not store
+`agentContext` as canonical state and does not resolve it from FINSEC SEAL databases
+or the Sandbox.
+
 Initial Agent step:
 
 - `previousToolResult = null`
