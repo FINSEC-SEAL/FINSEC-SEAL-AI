@@ -1,5 +1,6 @@
 from app.domain.agent import AgentStepRequest, AgentStepResponse
-from app.provider.agent_provider import AgentProvider, DeterministicAgentProvider
+from app.provider.agent_provider import AgentProvider
+from app.provider.provider_factory import build_agent_provider
 
 
 class StatelessAgentService:
@@ -10,7 +11,7 @@ class StatelessAgentService:
         return self._provider.execute(request)
 
 
-_service = StatelessAgentService(DeterministicAgentProvider())
+_service = StatelessAgentService(build_agent_provider())
 
 
 def get_agent_service() -> StatelessAgentService:

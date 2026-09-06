@@ -104,3 +104,20 @@ def test_stateless_agent_service_requires_provider():
 
     with pytest.raises(TypeError):
         StatelessAgentService()
+
+
+def test_default_agent_service_uses_provider_factory(monkeypatch):
+    import importlib
+    import app.service.agent_service as agent_service
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+
+    monkeypatch.setenv("AGENT_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-secret")
+
+    try:
+        reloaded = importlib.reload(agent_service)
+        assert isinstance(reloaded.get_agent_service()._provider, OpenAICompatibleAgentProvider)
+    finally:
+        monkeypatch.delenv("AGENT_PROVIDER", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        importlib.reload(agent_service)

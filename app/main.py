@@ -4,6 +4,9 @@ from fastapi.responses import JSONResponse
 
 from app.api.agent import router as agent_router
 
+from app.provider.provider_errors import ProviderProtocolError, ProviderTimeoutError, ProviderUnavailableError
+
+
 app = FastAPI(
     title="FINSEC SEAL AI",
     version="0.1.0",
@@ -31,6 +34,30 @@ async def validation_exception_handler(
 
 
 app.include_router(agent_router)
+
+
+@app.exception_handler(ProviderTimeoutError)
+async def provider_timeout_error_handler(request, exc):
+    return JSONResponse(
+        status_code=504,
+        content={"detail": "Agent provider timed out."},
+    )
+
+
+@app.exception_handler(ProviderUnavailableError)
+async def provider_unavailable_error_handler(request, exc):
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "Agent provider unavailable."},
+    )
+
+
+@app.exception_handler(ProviderProtocolError)
+async def provider_protocol_error_handler(request, exc):
+    return JSONResponse(
+        status_code=502,
+        content={"detail": "Agent provider returned an invalid response."},
+    )
 
 
 @app.get("/health")
