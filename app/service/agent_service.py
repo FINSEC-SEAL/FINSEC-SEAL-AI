@@ -1,4 +1,9 @@
-from app.domain.agent import AgentStepRequest, AgentStepResponse
+from app.domain.agent import (
+    AgentStepRequest,
+    AgentStepResponse,
+    ContractCandidateRequest,
+    ContractCandidateResponse,
+)
 from app.provider.agent_provider import AgentProvider
 from app.provider.provider_factory import build_agent_provider
 
@@ -9,6 +14,12 @@ class StatelessAgentService:
 
     def execute_step(self, request: AgentStepRequest) -> AgentStepResponse:
         return self._provider.execute(request)
+
+    def generate_contract_candidate(
+        self,
+        request: ContractCandidateRequest,
+    ) -> ContractCandidateResponse:
+        return self._provider.generate_contract_candidate(request)
 
 
 _service = StatelessAgentService(build_agent_provider())

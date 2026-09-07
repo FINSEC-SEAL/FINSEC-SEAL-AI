@@ -4,6 +4,8 @@ import time
 import httpx
 
 from app.domain.agent import (
+    ContractCandidateRequest,
+    ContractCandidateResponse,
     AgentStepRequest,
     AgentStepResponse,
     FinalResponseAction,
@@ -205,5 +207,70 @@ class OpenAICompatibleAgentProvider:
                 type="FINAL_RESPONSE",
                 content=content,
             ),
+            latencyMs=latency_ms,
+        )
+
+    def generate_contract_candidate(
+        self,
+        request: ContractCandidateRequest,
+    ) -> ContractCandidateResponse:
+        payload = {
+            "model": "gpt-4.1-mini",
+            "messages": [
+                {"role": "system", "content": request.instructions},
+                {"role": "user", "content": request.inputJson},
+            ],
+            "stream": False,
+        }
+
+        started = time.perf_counter()
+        try:
+            with httpx.Client(
+                transport=self._transport,
+                timeout=self._timeout_seconds,
+            ) as client:
+                response = client.post(
+                    f"{self._base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+                response_payload = response.json()
+        except httpx.TimeoutException:
+            raise ProviderTimeoutError("Agent provider timed out.") from None
+        except (httpx.RequestError, httpx.HTTPStatusError):
+            raise ProviderUnavailableError("Agent provider unavailable.") from None
+        except json.JSONDecodeError:
+            raise ProviderProtocolError("Agent provider returned invalid JSON.") from None
+
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        if not isinstance(response_payload, dict):
+            raise ProviderProtocolError("Provider response must be a JSON object.")
+
+        response_model = response_payload.get("model")
+        if not isinstance(response_model, str) or not response_model.strip():
+            response_model = payload["model"]
+
+        choices = response_payload.get("choices")
+        if not isinstance(choices, list) or not choices:
+            raise ProviderProtocolError("Provider response must contain a choice.")
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            raise ProviderProtocolError("Provider choice must be an object.")
+
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            raise ProviderProtocolError("Provider choice must contain a message object.")
+
+        content = message.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise ProviderProtocolError("Provider response must contain non-empty content.")
+
+        return ContractCandidateResponse(
+            provider=self.provider,
+            model=response_model,
+            content=content,
             latencyMs=latency_ms,
         )

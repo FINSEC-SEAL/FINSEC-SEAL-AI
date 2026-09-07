@@ -178,3 +178,45 @@ def test_health_endpoint():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_contract_candidate_endpoint_returns_template_based_candidate():
+    response = client.post(
+        "/v1/agent/contract-candidates",
+        json={
+            "promptVersion": "loan-review-candidate/1",
+            "instructions": "Return JSON only.",
+            "inputJson": """
+            {
+              "identity": {"contractKey": "loan-review-default", "version": 1},
+              "financialTemplate": {
+                "schemaVersion": "1.0",
+                "purpose": "LOAN_DOCUMENT_COMPLETENESS_REVIEW",
+                "metadata": {"templateVersion": "loan-review/1", "validatorVersion": "1.0"}
+              }
+            }
+            """,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "deterministic"
+    assert body["model"] == "stateless-contract-v1"
+    assert body["latencyMs"] == 0
+    assert '"contractId": "loan-review-default"' in body["content"]
+    assert '"version": 1' in body["content"]
+
+
+def test_contract_candidate_endpoint_rejects_unknown_fields():
+    response = client.post(
+        "/v1/agent/contract-candidates",
+        json={
+            "promptVersion": "loan-review-candidate/1",
+            "instructions": "Return JSON only.",
+            "inputJson": "{}",
+            "unexpected": True,
+        },
+    )
+
+    assert response.status_code == 422

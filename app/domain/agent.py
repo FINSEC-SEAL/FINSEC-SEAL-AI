@@ -151,3 +151,16 @@ class AgentStepResponse(StrictModel):
     finishReason: Literal["tool_call", "stop"]
     action: AgentAction
     latencyMs: int = Field(ge=0)
+
+
+class ContractCandidateRequest(StrictModel):
+    promptVersion: str = Field(min_length=1, max_length=120)
+    instructions: str = Field(min_length=1, max_length=16_384)
+    inputJson: str = Field(min_length=1, max_length=65_536)
+
+
+class ContractCandidateResponse(StrictModel):
+    provider: str = Field(min_length=1, max_length=80)
+    model: str = Field(min_length=1, max_length=120)
+    content: str = Field(min_length=1, max_length=65_536)
+    latencyMs: int = Field(ge=0)
