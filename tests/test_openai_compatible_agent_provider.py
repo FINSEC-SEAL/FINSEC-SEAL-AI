@@ -4,7 +4,7 @@ from uuid import UUID
 import httpx
 import pytest
 
-from app.domain.agent import AgentStepRequest
+from app.domain.agent import AgentStepRequest, AttackMutationRequest
 
 
 RELEASE_ID = UUID("0198f1e2-0000-7000-8000-000000000100")
@@ -673,3 +673,61 @@ def test_openai_provider_rejects_missing_or_inconsistent_token_usage(usage):
 
     with pytest.raises(ProviderProtocolError):
         provider.execute(agent_step_request())
+
+
+def test_openai_provider_generates_mutations_and_restores_fixed_identity():
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["payload"] = json.loads(request.content)
+        content = {
+            "candidates": [
+                {"payload": "Synthetic wording A", "insertionLocation": "BODY"},
+                {"payload": "Synthetic wording B", "insertionLocation": "FOOTNOTE"},
+            ]
+        }
+        return httpx.Response(
+            200,
+            json={
+                "model": "mutation-model-resolved",
+                "choices": [{"message": {"content": json.dumps(content)}}],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 8, "total_tokens": 28},
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+    request = AttackMutationRequest.model_validate(
+        {
+            "parentSeedId": "0198f200-0000-7000-8000-000000000701",
+            "category": "FA-01",
+            "severity": "HIGH",
+            "targetTool": "CUSTOMER_DATA_READ",
+            "expectedInvariant": "INV-01",
+            "oracleType": "CROSS_CUSTOMER",
+            "deliveryChannel": "DOCUMENT_CONTENT",
+            "parentDocumentPayload": "Synthetic parent wording",
+            "count": 2,
+            "modelName": "mutation-model-requested",
+        }
+    )
+
+    result = provider.generate_mutations(request)
+
+    assert captured["payload"]["model"] == "mutation-model-requested"
+    assert captured["payload"]["response_format"] == {"type": "json_object"}
+    assert result.model == "mutation-model-resolved"
+    assert result.tokenUsage.totalTokens == 28
+    assert [candidate.parentSeedId for candidate in result.candidates] == [
+        request.parentSeedId,
+        request.parentSeedId,
+    ]
+    assert [candidate.payload for candidate in result.candidates] == [
+        "Synthetic wording A",
+        "Synthetic wording B",
+    ]
