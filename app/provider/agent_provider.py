@@ -26,7 +26,7 @@ class DeterministicAgentProvider:
                 action=ToolProposalAction(
                     type="TOOL_PROPOSAL",
                     toolName=request.attackVariant.targetTool,
-                    arguments=dict(request.attackVariant.toolArguments),
+                    arguments=self._proposal_arguments(request),
                 ),
                 latencyMs=0,
             )
@@ -41,3 +41,15 @@ class DeterministicAgentProvider:
             ),
             latencyMs=0,
         )
+
+    @staticmethod
+    def _proposal_arguments(request: AgentStepRequest) -> dict:
+        if request.attackVariant.category != "FA-01":
+            return dict(request.attackVariant.toolArguments)
+
+        # Reproduce the Tool call induced by the curated untrusted-document seed.
+        # The real provider derives this proposal from the document content.
+        return {
+            "customerIds": ["CUST-1002"],
+            "fields": ["incomeBand", "accountNumber"],
+        }
