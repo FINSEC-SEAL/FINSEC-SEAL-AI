@@ -145,9 +145,22 @@ AgentAction = Annotated[
 ]
 
 
+class TokenUsage(StrictModel):
+    promptTokens: int = Field(ge=0)
+    completionTokens: int = Field(ge=0)
+    totalTokens: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def total_matches_components(self) -> TokenUsage:
+        if self.totalTokens != self.promptTokens + self.completionTokens:
+            raise ValueError("totalTokens must equal promptTokens + completionTokens")
+        return self
+
+
 class AgentStepResponse(StrictModel):
     provider: str = Field(min_length=1, max_length=80)
     model: str = Field(min_length=1, max_length=120)
     finishReason: Literal["tool_call", "stop"]
     action: AgentAction
     latencyMs: int = Field(ge=0)
+    tokenUsage: TokenUsage

@@ -97,6 +97,7 @@ def test_openai_provider_maps_request_to_chat_completions():
             200,
             json={
                 "model": "configured-model-id",
+                "usage": {"prompt_tokens": 11, "completion_tokens": 3, "total_tokens": 14},
                 "choices": [
                     {
                         "finish_reason": "stop",
@@ -142,6 +143,7 @@ def test_openai_provider_maps_request_to_chat_completions():
     assert result.finishReason == "stop"
     assert result.action.type == "FINAL_RESPONSE"
     assert result.action.content == "review complete"
+    assert result.tokenUsage.totalTokens == 14
 
 
 def test_openai_provider_maps_single_known_tool_call_to_proposal():
@@ -154,6 +156,7 @@ def test_openai_provider_maps_single_known_tool_call_to_proposal():
             200,
             json={
                 "model": "configured-model-id",
+                "usage": {"prompt_tokens": 13, "completion_tokens": 5, "total_tokens": 18},
                 "choices": [
                     {
                         "finish_reason": "tool_calls",
@@ -609,6 +612,7 @@ def test_openai_provider_falls_back_when_response_model_is_invalid():
             200,
             json={
                 "model": None,
+                "usage": {"prompt_tokens": 7, "completion_tokens": 2, "total_tokens": 9},
                 "choices": [
                     {
                         "message": {
@@ -629,3 +633,43 @@ def test_openai_provider_falls_back_when_response_model_is_invalid():
     result = provider.execute(agent_step_request())
 
     assert result.model == "configured-model-id"
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        None,
+        {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 4},
+        {"prompt_tokens": -1, "completion_tokens": 2, "total_tokens": 1},
+        {"prompt_tokens": True, "completion_tokens": 2, "total_tokens": 3},
+    ],
+)
+def test_openai_provider_rejects_missing_or_inconsistent_token_usage(usage):
+    from app.provider.openai_compatible_agent_provider import OpenAICompatibleAgentProvider
+    from app.provider.provider_errors import ProviderProtocolError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "configured-model-id",
+                "usage": usage,
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "review complete",
+                        }
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleAgentProvider(
+        api_key="test-secret",
+        base_url="https://llm.example/v1",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(ProviderProtocolError):
+        provider.execute(agent_step_request())

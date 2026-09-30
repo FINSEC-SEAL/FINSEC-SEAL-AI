@@ -105,6 +105,11 @@ def test_initial_step_returns_only_structured_tool_proposal():
             },
         },
         "latencyMs": 0,
+        "tokenUsage": {
+            "promptTokens": 0,
+            "completionTokens": 0,
+            "totalTokens": 0,
+        },
     }
 
 

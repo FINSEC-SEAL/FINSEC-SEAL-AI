@@ -7,6 +7,7 @@ from app.domain.agent import (
     AgentStepRequest,
     AgentStepResponse,
     FinalResponseAction,
+    TokenUsage,
     ToolProposalAction,
 )
 
@@ -133,6 +134,8 @@ class OpenAICompatibleAgentProvider:
         if not isinstance(response_model, str) or not response_model.strip():
             response_model = request.agentContext.model.name
 
+        token_usage = self._token_usage(response_payload.get("usage"))
+
         choices = response_payload.get("choices")
         if not isinstance(choices, list) or not choices:
             raise ProviderProtocolError("Provider response must contain a choice.")
@@ -191,6 +194,7 @@ class OpenAICompatibleAgentProvider:
                     arguments=arguments,
                 ),
                 latencyMs=latency_ms,
+                tokenUsage=token_usage,
             )
 
         content = message.get("content")
@@ -206,4 +210,25 @@ class OpenAICompatibleAgentProvider:
                 content=content,
             ),
             latencyMs=latency_ms,
+            tokenUsage=token_usage,
+        )
+
+    @staticmethod
+    def _token_usage(raw_usage: object) -> TokenUsage:
+        if not isinstance(raw_usage, dict):
+            raise ProviderProtocolError("Provider response must contain token usage.")
+
+        prompt_tokens = raw_usage.get("prompt_tokens")
+        completion_tokens = raw_usage.get("completion_tokens")
+        total_tokens = raw_usage.get("total_tokens")
+        values = (prompt_tokens, completion_tokens, total_tokens)
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in values):
+            raise ProviderProtocolError("Provider token usage must contain non-negative integers.")
+        if total_tokens != prompt_tokens + completion_tokens:
+            raise ProviderProtocolError("Provider total token usage is inconsistent.")
+
+        return TokenUsage(
+            promptTokens=prompt_tokens,
+            completionTokens=completion_tokens,
+            totalTokens=total_tokens,
         )
