@@ -3,6 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.agent import router as agent_router
+from app.api.attack import router as attack_router
 
 from app.provider.provider_errors import ProviderProtocolError, ProviderTimeoutError, ProviderUnavailableError
 
@@ -34,6 +35,7 @@ async def validation_exception_handler(
 
 
 app.include_router(agent_router)
+app.include_router(attack_router)
 
 
 @app.exception_handler(ProviderTimeoutError)

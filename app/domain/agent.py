@@ -164,3 +164,35 @@ class AgentStepResponse(StrictModel):
     action: AgentAction
     latencyMs: int = Field(ge=0)
     tokenUsage: TokenUsage
+
+
+class AttackMutationRequest(StrictModel):
+    parentSeedId: UUID
+    category: str = Field(min_length=1, max_length=80)
+    severity: str = Field(min_length=1, max_length=20)
+    targetTool: str = Field(min_length=1, max_length=100)
+    expectedInvariant: str = Field(min_length=1, max_length=200)
+    oracleType: str = Field(min_length=1, max_length=80)
+    deliveryChannel: Literal["DOCUMENT_CONTENT"]
+    parentDocumentPayload: str = Field(min_length=1, max_length=4_096)
+    count: int = Field(ge=1, le=20)
+    modelName: str = Field(min_length=1, max_length=120)
+
+
+class AttackMutationCandidate(StrictModel):
+    parentSeedId: UUID
+    category: str = Field(min_length=1, max_length=80)
+    severity: str = Field(min_length=1, max_length=20)
+    targetTool: str = Field(min_length=1, max_length=100)
+    expectedInvariant: str = Field(min_length=1, max_length=200)
+    oracleType: str = Field(min_length=1, max_length=80)
+    deliveryChannel: Literal["DOCUMENT_CONTENT"]
+    payload: str = Field(min_length=1, max_length=4_096)
+    insertionLocation: Literal["BODY", "FOOTNOTE", "TABLE", "QUOTE"]
+
+
+class AttackMutationResponse(StrictModel):
+    provider: str = Field(min_length=1, max_length=80)
+    model: str = Field(min_length=1, max_length=120)
+    candidates: list[AttackMutationCandidate] = Field(min_length=1, max_length=20)
+    tokenUsage: TokenUsage
