@@ -4,6 +4,7 @@ from app.domain.agent import (
     AgentStepRequest,
     AgentStepResponse,
     FinalResponseAction,
+    TokenUsage,
     ToolProposalAction,
 )
 
@@ -29,6 +30,11 @@ class DeterministicAgentProvider:
                     arguments=self._proposal_arguments(request),
                 ),
                 latencyMs=0,
+                tokenUsage=TokenUsage(
+                    promptTokens=0,
+                    completionTokens=0,
+                    totalTokens=0,
+                ),
             )
 
         return AgentStepResponse(
@@ -40,6 +46,11 @@ class DeterministicAgentProvider:
                 content="Tool result received; agent step completed.",
             ),
             latencyMs=0,
+            tokenUsage=TokenUsage(
+                promptTokens=0,
+                completionTokens=0,
+                totalTokens=0,
+            ),
         )
 
     @staticmethod
